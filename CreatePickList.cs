@@ -84,32 +84,34 @@ namespace wayfair_order_picklist_dev
                 if (!response.IsSuccessStatusCode)
                 {
                     log.LogError($"Error creating picklist: {responseBody}");
+                    await UpdateStagingTableStatus(order[0].StagingtableId, "F", responseBody, log);
                     return new BadRequestObjectResult($"Error creating picklist: {responseBody}");
                 }
 
                 log.LogInformation("Picklist created successfully. Updating Wayfair_Order_Staging table...");
 
-                await UpdateStagingTableStatus(order[0].StagingtableId, log);
+                await UpdateStagingTableStatus(order[0].StagingtableId, "S", null, log);
 
                 return new OkObjectResult(responseBody);
             }
             catch (Exception ex)
             {
                 log.LogError($"Exception occurred: {ex.Message}");
+                await UpdateStagingTableStatus(order[0].StagingtableId, "F", ex.Message, log);
                 return new StatusCodeResult(StatusCodes.Status500InternalServerError);
             }
         }
 
-        public static async Task UpdateStagingTableStatus(string stagingtableId, ILogger log)
+        public static async Task UpdateStagingTableStatus(string stagingtableId, string status, string comment, ILogger log)
         {
             var statusJson = new Dictionary<string, object>
             {
-                { "ProcStatus", "S"}
+                { "ProcStatus", status}
             };
 
             CrudData crudData = new CrudData
             {
-                Comment = null,
+                Comment = comment,
                 CreateDateTime = DateTime.Now,
                 DBName = "Moes_data_repository_Test",
                 FieldsAndValuesJson = statusJson,
@@ -122,7 +124,7 @@ namespace wayfair_order_picklist_dev
                 TableName = "Wayfair_Order_Staging"
             };
 
-            var requestUrl = Environment.GetEnvironmentVariable("LOGIC_APP_URL");
+            var requestUrl = Environment.GetEnvironmentVariable("https://prod-24.canadacentral.logic.azure.com:443/workflows/00d6a3a5987b4aa899957ed4d96841a4/triggers/manual/paths/invoke?api-version=2016-10-01&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=gxWUtiYBvNe66--IpS-hruioC8rYIfBbWsjgFE4y_Wo");
             var request = new HttpRequestMessage(HttpMethod.Post, requestUrl)
             {
                 Content = new StringContent(JsonConvert.SerializeObject(crudData), Encoding.UTF8, "application/json")
