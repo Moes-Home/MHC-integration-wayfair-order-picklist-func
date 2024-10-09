@@ -11,6 +11,6 @@ namespace wayfair_order_picklist_dev.Models
         public string LineNum { get; set; }
         public string ReleasedQuantity { get; set; }
         public string StagingtableId { get; set; }
-        public string DbName { get; set; }
+        public string DBName { get; set; }
     }
 }

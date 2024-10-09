@@ -40,7 +40,8 @@ namespace wayfair_order_picklist_dev
             var picklist = new PickLists
             {
                 ObjectType = order[0].ObjectType,
-                PickDate = order[0].PickDate,
+                PickDate = order[0].PickDate.Date.ToString("yyyy-MM-dd"),
+                //PickDate = order[0].PickDate,
                 PickListsLines = new List<PickListsLine>()
             };
 
@@ -48,6 +49,7 @@ namespace wayfair_order_picklist_dev
             {
                 var picklistline = new PickListsLine
                 {
+                    BaseObjectType = Convert.ToInt32(line.BaseObjectType),
                     OrderEntry = Convert.ToInt32(line.DocEntry),
                     OrderRowID = Convert.ToInt32(line.LineNum),
                     ReleasedQuantity = Convert.ToInt32(line.ReleasedQuantity)
@@ -55,9 +57,11 @@ namespace wayfair_order_picklist_dev
                 picklist.PickListsLines.Add(picklistline);
             }
 
+            var pickliatJson = JsonConvert.SerializeObject(picklist);
+
             string requestUrl;
 
-            if (order[0].DbName.ToLower() == "us")
+            if (order[0].DBName.ToLower().Contains("us"))
                 requestUrl = "https://mhcdev-integration-apim.azure-api.net/serviceLayer/create-object-us/PickLists";
             else
                 requestUrl = "https://mhcdev-integration-apim.azure-api.net/serviceLayer/create-object-ca/PickLists";
@@ -68,7 +72,7 @@ namespace wayfair_order_picklist_dev
             };
 
             var subscriptionKey = Environment.GetEnvironmentVariable("SUBSCRIPTION_KEY");
-            request.Headers.Add("Ocp-Apim-Subscription-Key", subscriptionKey);
+            request.Headers.Add("Ocp-Apim-Subscription-Key", "4e3fddcb396f4940957c49f784d1560a");
 
             log.LogInformation("Picklist JSON: " + JsonConvert.SerializeObject(picklist));
 
@@ -111,7 +115,7 @@ namespace wayfair_order_picklist_dev
                 FieldsAndValuesJson = statusJson,
                 OperationStatus = "N",
                 OperationType = "update",
-                PrimaryFieldName = "StagingtableId",
+                PrimaryFieldName = "DocEntry",
                 PrimaryFieldValue = stagingtableId,
                 SchemaName = "dbo",
                 SequentialPrimaryKey = "0",
