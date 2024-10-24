@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Reflection.Metadata;
 
 namespace wayfair_order_picklist_dev.Models
 {
@@ -12,5 +14,6 @@ namespace wayfair_order_picklist_dev.Models
         public string ReleasedQuantity { get; set; }
         public string StagingtableId { get; set; }
         public string DBName { get; set; }
+        public List<DocumentLinesBinAllocation> DocumentLinesBinAllocations { get; set; }
     }
 }

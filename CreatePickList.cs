@@ -58,8 +58,14 @@ namespace wayfair_order_picklist_dev
                     BaseObjectType = Convert.ToInt32(line.BaseObjectType),
                     OrderEntry = Convert.ToInt32(line.DocEntry),
                     OrderRowID = Convert.ToInt32(line.LineNum),
-                    ReleasedQuantity = Convert.ToInt32(line.ReleasedQuantity)
+                    ReleasedQuantity = Convert.ToInt32(line.ReleasedQuantity),
+                    DocumentLinesBinAllocations = new List<DocumentLinesBinAllocation>()
                 };
+
+                foreach (var lineBin in line.DocumentLinesBinAllocations)
+                {
+                    picklistline.DocumentLinesBinAllocations.Add(lineBin);
+                }
                 picklist.PickListsLines.Add(picklistline);
             }
 
