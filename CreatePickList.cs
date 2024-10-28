@@ -32,10 +32,16 @@ namespace wayfair_order_picklist_dev
             [HttpTrigger(AuthorizationLevel.Function, "post", Route = "CreatePicklist")] HttpRequest req,
             ILogger log)
         {
-            log.LogInformation("Received request to create a picklist.");
+            if (string.IsNullOrEmpty(logAnalyticsWorkspaceId) || string.IsNullOrEmpty(logAnalyticsSharedKey))
+            {
+                log.LogError("Log Analytics credentials are missing.");
+                return new StatusCodeResult(StatusCodes.Status500InternalServerError);
+            }
 
             var requestBody = await new StreamReader(req.Body).ReadToEndAsync();
             var order = JsonConvert.DeserializeObject<List<OrderLine>>(requestBody);
+            log.LogInformation($"Received order data: {JsonConvert.SerializeObject(order)}");
+
 
             if (order == null)
             {
@@ -69,12 +75,12 @@ namespace wayfair_order_picklist_dev
                 picklist.PickListsLines.Add(picklistline);
             }
 
-            string requestUrl;
+            log.LogInformation($"Ceated picklist: {JsonConvert.SerializeObject(picklist)}");
 
-            if (order[0].DBName.ToLower().Contains("us"))
-                requestUrl = "https://mhcdev-integration-apim.azure-api.net/serviceLayer/create-object-us/PickLists";
-            else
-                requestUrl = "https://mhcdev-integration-apim.azure-api.net/serviceLayer/create-object-ca/PickLists";
+            string requestUrl = order[0].DBName.ToLower().Contains("us")
+              ? "https://mhcdev-integration-apim.azure-api.net/serviceLayer/create-object-us/PickLists"
+              : "https://mhcdev-integration-apim.azure-api.net/serviceLayer/create-object-ca/PickLists";
+            log.LogInformation($"Prepared request URL based on DBName: {requestUrl}");
 
             var request = new HttpRequestMessage(HttpMethod.Post, requestUrl)
             {
@@ -82,29 +88,33 @@ namespace wayfair_order_picklist_dev
             };
 
             var subscriptionKey = Environment.GetEnvironmentVariable("Ocp-Apim-Subscription-Key");
+            if (string.IsNullOrEmpty(subscriptionKey))
+            {
+                log.LogError("Ocp-Apim-Subscription-Key is missing.");
+                return new StatusCodeResult(StatusCodes.Status500InternalServerError);
+            }
             request.Headers.Add("Ocp-Apim-Subscription-Key", subscriptionKey);
-
-            log.LogInformation("Picklist JSON: " + JsonConvert.SerializeObject(picklist));
 
             try
             {
+                log.LogInformation("Sending request to create picklist.");
                 var response = await httpClient.SendAsync(request);
                 var responseBody = await response.Content.ReadAsStringAsync();
 
                 if (!response.IsSuccessStatusCode)
                 {
-                    log.LogError($"Error creating picklist: {responseBody}");
+                    log.LogError($"Error creating picklist with status code {response.StatusCode}: {responseBody}");
                     await SendLogToLogAnalytics(responseBody, "error", log);
                     return new BadRequestObjectResult($"Error creating picklist: {responseBody}");
                 }
 
-                log.LogInformation("Picklist created successfully.");
+                log.LogInformation($"Picklist created successfully: {responseBody}");
                 await SendLogToLogAnalytics("Picklist created successfully", "success", log);
                 return new OkObjectResult(responseBody);
             }
             catch (Exception ex)
             {
-                log.LogError($"Exception occurred: {ex.Message}");
+                log.LogError($"Exception occurred while creating picklist: {ex.Message}");
                 await SendLogToLogAnalytics(ex.Message, "error", log);
                 return new StatusCodeResult(StatusCodes.Status500InternalServerError);
             }
