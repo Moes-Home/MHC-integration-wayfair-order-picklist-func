@@ -39,6 +39,8 @@ namespace wayfair_order_picklist_dev
             }
 
             var requestBody = await new StreamReader(req.Body).ReadToEndAsync();
+            requestBody = requestBody.Replace("\\r\\n", "").Replace("\\", "").Replace("\"[", "[").Replace("]\"", "]");
+            log.LogInformation(requestBody);
             var order = JsonConvert.DeserializeObject<List<OrderLine>>(requestBody);
             log.LogInformation($"Received order data: {JsonConvert.SerializeObject(order)}");
 
@@ -115,6 +117,7 @@ namespace wayfair_order_picklist_dev
             catch (Exception ex)
             {
                 log.LogError($"Exception occurred while creating picklist: {ex.Message}");
+                log.LogError($"StackTrace: {ex.StackTrace}");
                 await SendLogToLogAnalytics(ex.Message, "error", log);
                 return new StatusCodeResult(StatusCodes.Status500InternalServerError);
             }
@@ -189,6 +192,7 @@ namespace wayfair_order_picklist_dev
             catch (Exception ex)
             {
                 log.LogError("API Post Exception: " + ex.Message);
+                log.LogError($"StackTrace: {ex.StackTrace}");
             }
         }
     }
