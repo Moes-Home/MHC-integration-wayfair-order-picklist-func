@@ -11,9 +11,9 @@ namespace wayfair_order_picklist_dev.Models
         public int OrderEntry { get; set; }
         public int OrderRowID { get; set; }
         public string PickStatus { get; set; }
-        public int PickedQuantity { get; set; }
-        public int PreviouslyReleasedQuantity { get; set; }
-        public int ReleasedQuantity { get; set; }
-        public List<SerialNumber> SerialNumbers { get; set; }
+        public decimal PickedQuantity { get; set; }
+        public decimal PreviouslyReleasedQuantity { get; set; }
+        public decimal ReleasedQuantity { get; set; }
+        // public List<SerialNumber> SerialNumbers { get; set; }
     }
 }

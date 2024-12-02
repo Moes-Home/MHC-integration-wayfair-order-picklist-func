@@ -4,6 +4,7 @@ using Microsoft.Azure.WebJobs;
 using Microsoft.Azure.WebJobs.Extensions.Http;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -122,11 +123,11 @@ namespace wayfair_order_picklist_dev
                     NullValueHandling = NullValueHandling.Ignore,
                 };
 
-                var createdPicklist = JsonConvert.DeserializeObject<PickLists>(requestBody);
+                var createdPicklist = JsonConvert.DeserializeObject<PickLists>(responseBody);
 
-                var picklistUpdate = new PickLists
+                var picklistUpdate = new PickListsUpdated
                 {
-                    AbsoluteEntry = createdPicklist.AbsoluteEntry,
+                    Absoluteentry = createdPicklist.AbsoluteEntry,
                     Name = createdPicklist.Name,
                     OwnerCode = createdPicklist.OwnerCode,
                     Status = createdPicklist.Status,
@@ -136,26 +137,35 @@ namespace wayfair_order_picklist_dev
                     PickListsLines = new List<PickListsLine>()
                 };
 
-                foreach (var line in order)
+                foreach (var line in createdPicklist.PickListsLines)
                 {
                     var picklistlineUpdate = new PickListsLine
                     {
-                        AbsoluteEntry = createdPicklist.AbsoluteEntry,
+                        AbsoluteEntry = line.AbsoluteEntry,
                         BaseObjectType = Convert.ToInt32(line.BaseObjectType),
-                        OrderEntry = Convert.ToInt32(line.DocEntry),
-                        OrderRowID = Convert.ToInt32(line.LineNum),
-                        ReleasedQuantity = Convert.ToInt32(line.ReleasedQuantity),
+                        LineNumber = line.LineNumber,
+                        OrderEntry = Convert.ToInt32(line.OrderEntry),
+                        OrderRowID = Convert.ToInt32(line.OrderRowID),
+                        ReleasedQuantity = line.ReleasedQuantity,
                         DocumentLinesBinAllocations = new List<DocumentLinesBinAllocation>()
                     };
 
-                    foreach (var lineBin in line.DocumentLinesBinAllocations)
+                    var orderBinAllocations = order.Find(x => Convert.ToInt32(x.LineNum) == line.OrderRowID).DocumentLinesBinAllocations;
+
+                    foreach (var lineBin in orderBinAllocations)
                     {
                         picklistlineUpdate.DocumentLinesBinAllocations.Add(lineBin);
                     }
                     picklistUpdate.PickListsLines.Add(picklistlineUpdate);
                 }
 
-                await UpdatePicklistBinAllocation(us, log, picklistUpdate);
+                var content = new JObject{
+                    { "PickList", JToken.FromObject(picklistUpdate) }
+                };
+
+                log.LogInformation($"Updated Picklist: {JsonConvert.SerializeObject(content)}");
+
+                await UpdatePicklistBinAllocation(us, log, content);
                 await SendLogToLogAnalytics("Picklist created successfully", "success", log);
                 return new OkObjectResult(responseBody);
             }
@@ -168,7 +178,7 @@ namespace wayfair_order_picklist_dev
             }
         }
 
-        public static async Task<IActionResult> UpdatePicklistBinAllocation(bool us, ILogger log, PickLists picklist)
+        public static async Task<IActionResult> UpdatePicklistBinAllocation(bool us, ILogger log, JObject picklist)
         {
             string requestUrl = us
               ? "https://mhcdev-integration-apim.azure-api.net/serviceLayer/create-object-us/PickListsService_UpdateReleasedAllocation"
@@ -179,6 +189,8 @@ namespace wayfair_order_picklist_dev
             {
                 Content = new StringContent(JsonConvert.SerializeObject(picklist, settings), Encoding.UTF8, "application/json")
             };
+
+            log.LogInformation($"Request for updating piclist: {JsonConvert.SerializeObject(request.Content)}");
 
             var subscriptionKey = Environment.GetEnvironmentVariable("Ocp-Apim-Subscription-Key");
             if (string.IsNullOrEmpty(subscriptionKey))
