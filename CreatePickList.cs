@@ -22,10 +22,13 @@ namespace wayfair_order_picklist_dev
         {
             Timeout = TimeSpan.FromSeconds(30)
         };
-
         private static readonly string logAnalyticsWorkspaceId = Environment.GetEnvironmentVariable("LOG_ANALYTICS_WORKSPACE_ID");
         private static readonly string logAnalyticsSharedKey = Environment.GetEnvironmentVariable("LOG_ANALYTICS_SHARED_KEY");
         private static readonly string logName = "PicklistLog";
+        private static readonly JsonSerializerSettings settings = new JsonSerializerSettings
+        {
+            NullValueHandling = NullValueHandling.Ignore,
+        };
 
         [FunctionName("CreatePicklist")]
         public static async Task<IActionResult> Run(
@@ -52,16 +55,18 @@ namespace wayfair_order_picklist_dev
                 return new BadRequestObjectResult("Invalid order data.");
             }
 
-            var picklist = new PickLists
+            bool us = order[0].DBName.ToLower().Contains("us") ? true : false;
+
+            var picklist = new PickListsDTO
             {
                 ObjectType = order[0].ObjectType,
                 PickDate = order[0].PickDate.Date.ToString("yyyy-MM-dd"),
-                PickListsLines = new List<PickListsLine>()
+                PickListsLines = new List<PickListsLineDTO>()
             };
 
             foreach (var line in order)
             {
-                var picklistline = new PickListsLine
+                var picklistline = new PickListsLineDTO
                 {
                     BaseObjectType = Convert.ToInt32(line.BaseObjectType),
                     OrderEntry = Convert.ToInt32(line.DocEntry),
@@ -77,16 +82,16 @@ namespace wayfair_order_picklist_dev
                 picklist.PickListsLines.Add(picklistline);
             }
 
-            log.LogInformation($"Ceated picklist: {JsonConvert.SerializeObject(picklist)}");
+            log.LogInformation($"Ceated picklist: {JsonConvert.SerializeObject(picklist, settings)}");
 
-            string requestUrl = order[0].DBName.ToLower().Contains("us")
+            string requestUrl = us
               ? "https://mhcdev-integration-apim.azure-api.net/serviceLayer/create-object-us/PickLists"
               : "https://mhcdev-integration-apim.azure-api.net/serviceLayer/create-object-ca/PickLists";
             log.LogInformation($"Prepared request URL based on DBName: {requestUrl}");
 
             var request = new HttpRequestMessage(HttpMethod.Post, requestUrl)
             {
-                Content = new StringContent(JsonConvert.SerializeObject(picklist), Encoding.UTF8, "application/json")
+                Content = new StringContent(JsonConvert.SerializeObject(picklist, settings), Encoding.UTF8, "application/json")
             };
 
             var subscriptionKey = Environment.GetEnvironmentVariable("Ocp-Apim-Subscription-Key");
@@ -111,12 +116,97 @@ namespace wayfair_order_picklist_dev
                 }
 
                 log.LogInformation($"Picklist created successfully: {responseBody}");
+
+                var settings = new JsonSerializerSettings
+                {
+                    NullValueHandling = NullValueHandling.Ignore,
+                };
+
+                var createdPicklist = JsonConvert.DeserializeObject<PickLists>(requestBody);
+
+                var picklistUpdate = new PickLists
+                {
+                    AbsoluteEntry = createdPicklist.AbsoluteEntry,
+                    Name = createdPicklist.Name,
+                    OwnerCode = createdPicklist.OwnerCode,
+                    Status = createdPicklist.Status,
+                    UseBaseUnits = createdPicklist.UseBaseUnits,
+                    ObjectType = order[0].ObjectType,
+                    PickDate = order[0].PickDate.Date.ToString("yyyy-MM-dd"),
+                    PickListsLines = new List<PickListsLine>()
+                };
+
+                foreach (var line in order)
+                {
+                    var picklistlineUpdate = new PickListsLine
+                    {
+                        AbsoluteEntry = createdPicklist.AbsoluteEntry,
+                        BaseObjectType = Convert.ToInt32(line.BaseObjectType),
+                        OrderEntry = Convert.ToInt32(line.DocEntry),
+                        OrderRowID = Convert.ToInt32(line.LineNum),
+                        ReleasedQuantity = Convert.ToInt32(line.ReleasedQuantity),
+                        DocumentLinesBinAllocations = new List<DocumentLinesBinAllocation>()
+                    };
+
+                    foreach (var lineBin in line.DocumentLinesBinAllocations)
+                    {
+                        picklistlineUpdate.DocumentLinesBinAllocations.Add(lineBin);
+                    }
+                    picklistUpdate.PickListsLines.Add(picklistlineUpdate);
+                }
+
+                await UpdatePicklistBinAllocation(us, log, picklistUpdate);
                 await SendLogToLogAnalytics("Picklist created successfully", "success", log);
                 return new OkObjectResult(responseBody);
             }
             catch (Exception ex)
             {
                 log.LogError($"Exception occurred while creating picklist: {ex.Message}");
+                log.LogError($"StackTrace: {ex.StackTrace}");
+                await SendLogToLogAnalytics(ex.Message, "error", log);
+                return new StatusCodeResult(StatusCodes.Status500InternalServerError);
+            }
+        }
+
+        public static async Task<IActionResult> UpdatePicklistBinAllocation(bool us, ILogger log, PickLists picklist)
+        {
+            string requestUrl = us
+              ? "https://mhcdev-integration-apim.azure-api.net/serviceLayer/create-object-us/PickListsService_UpdateReleasedAllocation"
+              : "https://mhcdev-integration-apim.azure-api.net/serviceLayer/create-object-ca/PickListsService_UpdateReleasedAllocation";
+            log.LogInformation($"Prepared request URL based on DBName: {requestUrl}");
+
+            var request = new HttpRequestMessage(HttpMethod.Post, requestUrl)
+            {
+                Content = new StringContent(JsonConvert.SerializeObject(picklist, settings), Encoding.UTF8, "application/json")
+            };
+
+            var subscriptionKey = Environment.GetEnvironmentVariable("Ocp-Apim-Subscription-Key");
+            if (string.IsNullOrEmpty(subscriptionKey))
+            {
+                log.LogError("Ocp-Apim-Subscription-Key is missing.");
+                return new StatusCodeResult(StatusCodes.Status500InternalServerError);
+            }
+            request.Headers.Add("Ocp-Apim-Subscription-Key", subscriptionKey);
+
+            try
+            {
+                log.LogInformation("Sending request to update picklist.");
+                var response = await httpClient.SendAsync(request);
+                var responseBody = await response.Content.ReadAsStringAsync();
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    log.LogError($"Error updating picklist with status code {response.StatusCode}: {responseBody}");
+                    await SendLogToLogAnalytics(responseBody, "error", log);
+                    return new BadRequestObjectResult($"Error updating picklist: {responseBody}");
+                }
+
+                log.LogInformation($"Picklist updated successfully: {responseBody}");
+                return new OkObjectResult(responseBody);
+            }
+            catch (Exception ex)
+            {
+                log.LogError($"Exception occurred while updating picklist: {ex.Message}");
                 log.LogError($"StackTrace: {ex.StackTrace}");
                 await SendLogToLogAnalytics(ex.Message, "error", log);
                 return new StatusCodeResult(StatusCodes.Status500InternalServerError);
