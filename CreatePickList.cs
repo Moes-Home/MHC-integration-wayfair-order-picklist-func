@@ -147,6 +147,7 @@ namespace wayfair_order_picklist_dev
                         OrderEntry = Convert.ToInt32(line.OrderEntry),
                         OrderRowID = Convert.ToInt32(line.OrderRowID),
                         ReleasedQuantity = line.ReleasedQuantity,
+                        PreviouslyReleasedQuantity = 1,
                         PickStatus = "ps_Released",
                         DocumentLinesBinAllocations = new List<DocumentLinesBinAllocation>()
                     };
