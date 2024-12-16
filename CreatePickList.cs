@@ -156,7 +156,7 @@ namespace wayfair_order_picklist_dev
 
                     foreach (var lineBin in orderBinAllocations)
                     {
-                        lineBin.BaseLineNumber = Convert.ToInt32(line.OrderRowID);
+                        lineBin.BaseLineNumber = Convert.ToInt32(line.LineNumber);
                         picklistlineUpdate.DocumentLinesBinAllocations.Add(lineBin);
                     }
                     picklistUpdate.PickListsLines.Add(picklistlineUpdate);
