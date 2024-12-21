@@ -86,8 +86,8 @@ namespace wayfair_order_picklist_dev
             log.LogInformation($"Ceated picklist: {JsonConvert.SerializeObject(picklist, settings)}");
 
             string requestUrl = us
-              ? "https://mhcdev-integration-apim.azure-api.net/serviceLayer/create-object-us/PickLists"
-              : "https://mhcdev-integration-apim.azure-api.net/serviceLayer/create-object-ca/PickLists";
+              ? "https://integration-service-apim-v2.azure-api.net/serviceLayer/create-object-us/PickLists"
+              : "https://integration-service-apim-v2.azure-api.net/serviceLayer/create-object-ca/PickLists";
             log.LogInformation($"Prepared request URL based on DBName: {requestUrl}");
 
             var request = new HttpRequestMessage(HttpMethod.Post, requestUrl)
@@ -95,7 +95,7 @@ namespace wayfair_order_picklist_dev
                 Content = new StringContent(JsonConvert.SerializeObject(picklist, settings), Encoding.UTF8, "application/json")
             };
 
-            var subscriptionKey = Environment.GetEnvironmentVariable("Ocp-Apim-Subscription-Key");
+            var subscriptionKey = "cc910f9955424c29a58ea9c5182016a7"; //Environment.GetEnvironmentVariable("Ocp-Apim-Subscription-Key");
             if (string.IsNullOrEmpty(subscriptionKey))
             {
                 log.LogError("Ocp-Apim-Subscription-Key is missing.");
@@ -184,8 +184,8 @@ namespace wayfair_order_picklist_dev
         public static async Task<IActionResult> UpdatePicklistBinAllocation(bool us, ILogger log, JObject picklist)
         {
             string requestUrl = us
-              ? "https://mhcdev-integration-apim.azure-api.net/serviceLayer/create-object-us/PickListsService_UpdateReleasedAllocation"
-              : "https://mhcdev-integration-apim.azure-api.net/serviceLayer/create-object-ca/PickListsService_UpdateReleasedAllocation";
+              ? "https://integration-service-apim-v2.azure-api.net/serviceLayer/create-object-us/PickListsService_UpdateReleasedAllocation"
+              : "https://integration-service-apim-v2.azure-api.net/serviceLayer/create-object-ca/PickListsService_UpdateReleasedAllocation";
             log.LogInformation($"Prepared request URL based on DBName: {requestUrl}");
 
             var request = new HttpRequestMessage(HttpMethod.Post, requestUrl)
@@ -195,7 +195,7 @@ namespace wayfair_order_picklist_dev
 
             log.LogInformation($"Request for updating piclist: {JsonConvert.SerializeObject(request.Content)}");
 
-            var subscriptionKey = Environment.GetEnvironmentVariable("Ocp-Apim-Subscription-Key");
+            var subscriptionKey = "cc910f9955424c29a58ea9c5182016a7"; //Environment.GetEnvironmentVariable("Ocp-Apim-Subscription-Key");
             if (string.IsNullOrEmpty(subscriptionKey))
             {
                 log.LogError("Ocp-Apim-Subscription-Key is missing.");
