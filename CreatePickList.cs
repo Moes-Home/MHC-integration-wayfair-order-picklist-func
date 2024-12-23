@@ -61,7 +61,7 @@ namespace wayfair_order_picklist_dev
             var picklist = new PickListsDTO
             {
                 ObjectType = order[0].ObjectType,
-                PickDate = order[0].PickDate.Date.ToString("yyyy-MM-dd"),
+                PickDate = DateTime.Now.Date.ToString("yyyy-MM-dd"),
                 PickListsLines = new List<PickListsLineDTO>()
             };
 
@@ -133,7 +133,7 @@ namespace wayfair_order_picklist_dev
                     Status = createdPicklist.Status,
                     UseBaseUnits = createdPicklist.UseBaseUnits,
                     ObjectType = order[0].ObjectType,
-                    PickDate = order[0].PickDate.Date.ToString("yyyy-MM-dd"),
+                    PickDate = DateTime.Now.Date.ToString("yyyy-MM-dd"),
                     PickListsLines = new List<PickListsLine>()
                 };
 
