@@ -21,7 +21,7 @@ namespace wayfair_order_picklist_dev
     {
         private static readonly HttpClient httpClient = new HttpClient
         {
-            Timeout = TimeSpan.FromSeconds(180)
+            Timeout = TimeSpan.FromSeconds(1000)
         };
         private static readonly string logAnalyticsWorkspaceId = Environment.GetEnvironmentVariable("LOG_ANALYTICS_WORKSPACE_ID");
         private static readonly string logAnalyticsSharedKey = Environment.GetEnvironmentVariable("LOG_ANALYTICS_SHARED_KEY");
